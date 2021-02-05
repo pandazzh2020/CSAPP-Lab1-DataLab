@@ -143,7 +143,7 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  return ~(~x&~y)&~(x&y);
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -152,9 +152,7 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-
-  return 2;
-
+  return 1<<31;
 }
 //2
 /*
@@ -165,7 +163,7 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+  return !((~(x+1)^x))&!!(x+1);
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -176,7 +174,10 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+    int a=0xAA<<8;
+    int c=a|0xAA;
+    int d=c<<16|c;
+    return !((x&d)^(d));
 }
 /* 
  * negate - return -x 
@@ -186,7 +187,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x+1;
 }
 //3
 /* 
@@ -199,7 +200,12 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+    int a=!(x >> 4 ^0x3);
+    int b=x&0xF;
+    int c=~0xA+1;
+    int e=0x80<<4;
+    int d=!!((b+c)&(e));
+    return  a&d ;
 }
 /* 
  * conditional - same as x ? y : z 
@@ -209,7 +215,11 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+    int a=!!(x^0x0); //a=0 if x=0 else a =1
+    int b=~a+1;
+    int c=~(y&~b)+1;
+    int d=~(z&b)+1;
+    return y+z+c+d;
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -219,9 +229,14 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+    int a=x>>31&0x1;
+    int b=y>>31&0x1;
+    int c1=(a&~b); //表示 x为- y为+
+    int c2=(~a&b); //表示 x + y -;
+    int e=y+(~x+1); // x-y;
+    int flag=e>>31; //如果flag 和 c2 不同则说明了溢出了
+    return c1 |(!c2&!flag);
 }
-//4
 /* 
  * logicalNeg - implement the ! operator, using all of 
  *              the legal operators except !
@@ -231,7 +246,7 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+    return ((x | (~x +1)) >> 31) + 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -246,7 +261,22 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+    int b16,b8,b4,b2,b1,b0;
+    int flag=x>>31;
+    x=(flag&~x)|(~flag&x); //x为非正数则不变 ,x 为负数 则相当于按位取反
+    b16=!!(x>>16) <<4; //如果高16位不为0,则我们让b16=16
+    x>>=b16; //如果高16位不为0 则我们右移动16位 来看高16位的情况
+    //下面过程基本类似
+    b8=!!(x>>8)<<3;
+    x >>= b8;
+    b4 = !!(x >> 4) << 2;
+    x >>= b4;
+    b2 = !!(x >> 2) << 1;
+    x >>= b2;
+    b1 = !!(x >> 1);
+    x >>= b1;
+    b0 = x;
+    return b0+b1+b2+b4+b8+b16+1;
 }
 //float
 /* 
@@ -261,7 +291,20 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+    unsigned exp = (uf&0x7f800000)>>23;
+    unsigned sign=uf>>31&0x1;
+    unsigned frac=uf&0x7FFFFF;
+    unsigned res;
+    if(exp==0xFF)return uf;
+    else if(exp==0){
+        frac <<= 1;
+        res = (sign << 31) | (exp << 23) | frac;
+    }
+    else{
+        exp++;
+        res = (sign << 31) | (exp << 23) | frac;
+    }
+    return res;;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -276,7 +319,26 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+    unsigned exp = (uf&0x7f800000)>>23;
+    int sign=uf>>31&0x1;
+    unsigned frac=uf&0x7FFFFF;
+    int E=exp-127;
+    if(E<0)return 0;
+    else if(E >= 31){
+        return 0x80000000u;
+    }
+    else{
+        frac=frac|1<<23;
+        if(E<23) {//需要舍入
+            frac>>=(23-E);
+        }else{
+            frac <<= (E - 23);
+        }
+    }
+    if (sign)
+        return -frac;
+    else
+        return frac;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -292,5 +354,15 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if(x>127){
+        return 0xFF<<23;
+    }
+    else if(x<-148)return 0;
+    else if(x>=-126){
+        int exp = x + 127;
+        return (exp << 23);
+    } else{
+        int t = 148 + x;
+        return (1 << t);
+    }
 }
